@@ -5,6 +5,7 @@ import { knex } from '../database'
 import { checkSessionIdExists } from '../middlewares/check-session-id-exists'
 
 export async function dietBudRoutes(app: FastifyInstance) {
+  // get the list of users
   app.get(
     '/users',
     {
@@ -14,7 +15,30 @@ export async function dietBudRoutes(app: FastifyInstance) {
       const { sessionId } = request.cookies
       const users = await knex('users').where('session_id', sessionId).select()
 
-      return users
+      return { users }
+    },
+  )
+
+  // get a specific user
+  app.get(
+    '/users/:id',
+    { preHandler: [checkSessionIdExists] },
+    async (request) => {
+      const getUserParamsSchema = z.object({
+        id: z.string().uuid(),
+      })
+
+      const { id } = getUserParamsSchema.parse(request.params)
+      const { sessionId } = request.cookies
+
+      const user = await knex('users')
+        .where({
+          session_id: sessionId,
+          id,
+        })
+        .first()
+
+      return { user }
     },
   )
 
