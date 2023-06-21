@@ -49,6 +49,13 @@ export async function Meals(app: FastifyInstance) {
     return reply.status(201).send()
   })
 
+  // get all meals
+  app.get('/', { preHandler: [checkSessionIdExists] }, async (request) => {
+    const meals = await knex('meals').select('*')
+
+    return { meals }
+  })
+
   // get meals from a user
 
   app.get(
@@ -84,6 +91,68 @@ export async function Meals(app: FastifyInstance) {
 
     return { meals }
   })
+
+  // get a summary of meals
+  app.get(
+    '/summary/:userID',
+    { preHandler: [checkSessionIdExists] },
+    async (request) => {
+      const getMealsSummarySchema = z.object({
+        userID: z.string().uuid(),
+      })
+
+      const { userID } = getMealsSummarySchema.parse(request.params)
+
+      const { sessionId } = request.cookies
+
+      const [user] = await knex('users')
+        .where('id', userID)
+        .andWhere('session_id', sessionId)
+        .select('id')
+
+      const userId = user.id
+
+      //   const [count] = await knex('meals')
+      //     .count('*', {
+      //       as: 'Total of meals registered',
+      //     })
+      //     .where('user_id', userId)
+      const count = await knex('meals')
+        .count('meal_id', { as: 'Total de refeições registradas' })
+        .where('user_id', userId)
+        .first()
+
+      const totalMealsInsideDiet = await knex('meals')
+        .count('meal_id', { as: 'Total de refeições dentro da dieta' })
+        .where('inside_diet', true)
+        .andWhere('user_id', userId)
+
+      const totalMealsOutsideDiet = await knex('meals')
+        .count('meal_id', { as: 'Total de refeições fora da dieta' })
+        .where('inside_diet', false)
+        .andWhere('user_id', userId)
+
+      const summary = {
+        'Total de refeições registradas': parseInt(
+          JSON.parse(JSON.stringify(count))['Total de refeições registradas'],
+        ),
+
+        'Total de refeições dentro da dieta': parseInt(
+          JSON.parse(JSON.stringify(totalMealsInsideDiet))[0][
+            'Total de refeições dentro da dieta'
+          ],
+        ),
+
+        'Total de refeições fora da dieta': parseInt(
+          JSON.parse(JSON.stringify(totalMealsOutsideDiet))[0][
+            'Total de refeições fora da dieta'
+          ],
+        ),
+      }
+
+      return { summary }
+    },
+  )
 
   // update a meal
   app.put(
