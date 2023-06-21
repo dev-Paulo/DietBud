@@ -37,13 +37,6 @@ export async function Meals(app: FastifyInstance) {
       })
     }
 
-    // const user = await knex('users')
-    //   .where({
-    //     session_id: sessionId,
-    //     id,
-    //   })
-    //   .first()
-
     await knex('meals').insert({
       meal_id: randomUUID(),
       user_id: id,
@@ -58,6 +51,25 @@ export async function Meals(app: FastifyInstance) {
 
   // get meals from a user
 
+  app.get(
+    '/user/:id',
+    { preHandler: [checkSessionIdExists] },
+    async (request) => {
+      const getUserParamsSchema = z.object({
+        id: z.string().uuid(),
+      })
+
+      const { id } = getUserParamsSchema.parse(request.params)
+      // const { sessionId } = request.cookies
+
+      const meals = await knex('meals').where({
+        user_id: id,
+      })
+
+      return { meals }
+    },
+  )
+  // get an specific meal
   app.get('/:id', { preHandler: [checkSessionIdExists] }, async (request) => {
     const getUserParamsSchema = z.object({
       id: z.string().uuid(),
@@ -67,9 +79,46 @@ export async function Meals(app: FastifyInstance) {
     // const { sessionId } = request.cookies
 
     const meals = await knex('meals').where({
-      user_id: id,
+      meal_id: id,
     })
 
     return { meals }
   })
+
+  // delete a meal
+  app.delete(
+    '/:userID/:mealID',
+    { preHandler: [checkSessionIdExists] },
+    async (request, response) => {
+      const getMealParamsSchema = z.object({
+        userID: z.string().uuid(),
+        mealID: z.string().uuid(),
+      })
+
+      const { userID, mealID } = getMealParamsSchema.parse(request.params)
+
+      const { sessionId } = request.cookies
+
+      const [user] = await knex('users')
+        .where('id', userID)
+        .andWhere('session_id', sessionId)
+        .select('id')
+
+      const userId = user.id
+
+      const meal = await knex('meals')
+        .where('meal_id', mealID)
+        .andWhere('user_id', userId)
+        .first()
+        .delete()
+
+      if (!meal) {
+        return response.status(401).send({
+          error: 'No meal was found',
+        })
+      }
+
+      return response.status(202).send('Meal deleted')
+    },
+  )
 }
