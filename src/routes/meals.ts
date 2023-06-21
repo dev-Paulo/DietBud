@@ -85,6 +85,55 @@ export async function Meals(app: FastifyInstance) {
     return { meals }
   })
 
+  // update a meal
+  app.put(
+    '/:userID/:mealID',
+    { preHandler: [checkSessionIdExists] },
+    async (request, response) => {
+      const getMealParamsSchema = z.object({
+        userID: z.string().uuid(),
+        mealID: z.string().uuid(),
+      })
+
+      const { userID, mealID } = getMealParamsSchema.parse(request.params)
+
+      const { sessionId } = request.cookies
+
+      const [user] = await knex('users')
+        .where('id', userID)
+        .andWhere('session_id', sessionId)
+        .select('id')
+
+      const userId = user.id
+
+      const editMealBodySchema = z.object({
+        meal_name: z.string(),
+        meal_description: z.string(),
+        inside_diet: z.boolean(),
+      })
+
+      const { meal_name, meal_description, inside_diet } =
+        editMealBodySchema.parse(request.body)
+
+      const meal = await knex('meals')
+        .andWhere('user_id', userId)
+        .andWhere('meal_id', mealID)
+        .update({
+          meal_name,
+          meal_description,
+          inside_diet,
+        })
+
+      if (!meal) {
+        return response.status(401).send({
+          error: 'No meal was found',
+        })
+      }
+
+      return response.status(201).send('Meal updated')
+    },
+  )
+
   // delete a meal
   app.delete(
     '/:userID/:mealID',
