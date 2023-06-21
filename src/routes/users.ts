@@ -4,10 +4,10 @@ import { z } from 'zod'
 import { knex } from '../database'
 import { checkSessionIdExists } from '../middlewares/check-session-id-exists'
 
-export async function dietBudRoutes(app: FastifyInstance) {
+export async function Users(app: FastifyInstance) {
   // get the list of users
   app.get(
-    '/users',
+    '/',
     {
       preHandler: [checkSessionIdExists],
     },
@@ -20,29 +20,26 @@ export async function dietBudRoutes(app: FastifyInstance) {
   )
 
   // get a specific user
-  app.get(
-    '/users/:id',
-    { preHandler: [checkSessionIdExists] },
-    async (request) => {
-      const getUserParamsSchema = z.object({
-        id: z.string().uuid(),
+  app.get('/:id', { preHandler: [checkSessionIdExists] }, async (request) => {
+    const getUserParamsSchema = z.object({
+      id: z.string().uuid(),
+    })
+
+    const { id } = getUserParamsSchema.parse(request.params)
+    const { sessionId } = request.cookies
+
+    const user = await knex('users')
+      .where({
+        session_id: sessionId,
+        id,
       })
+      .first()
 
-      const { id } = getUserParamsSchema.parse(request.params)
-      const { sessionId } = request.cookies
+    return { user }
+  })
 
-      const user = await knex('users')
-        .where({
-          session_id: sessionId,
-          id,
-        })
-        .first()
-
-      return { user }
-    },
-  )
-
-  app.post('/users/create', async (request, reply) => {
+  // create user
+  app.post('/create', async (request, reply) => {
     const createUserSignUpBodySchema = z.object({
       name: z.string().nonempty('User name is required'),
       email: z.string().nonempty('User email is required'),
