@@ -117,40 +117,81 @@ export async function Meals(app: FastifyInstance) {
       //       as: 'Total of meals registered',
       //     })
       //     .where('user_id', userId)
-      const count = await knex('meals')
-        .count('meal_id', { as: 'Total de refeições registradas' })
-        .where('user_id', userId)
-        .first()
 
-      const totalMealsInsideDiet = await knex('meals')
-        .count('meal_id', { as: 'Total de refeições dentro da dieta' })
-        .where('inside_diet', true)
-        .andWhere('user_id', userId)
+      const meals = await knex('meals').where('user_id', userId)
+      const mealsInsideDiet = meals.filter((meal) => meal.inside_diet)
+      const mealsOutsideDiet = meals.filter((meal) => !meal.inside_diet)
 
-      const totalMealsOutsideDiet = await knex('meals')
-        .count('meal_id', { as: 'Total de refeições fora da dieta' })
-        .where('inside_diet', false)
-        .andWhere('user_id', userId)
+      const mealsBestSequence = meals.reduce(
+        (count, meal) => {
+          if (meal.inside_diet) {
+            count.sequence++
+          }
+          if (!meal.inside_diet) {
+            if (count.sequence > count.total) {
+              count.total = count.sequence
+            }
+            count.sequence = 0
+          }
 
-      const summary = {
-        'Total de refeições registradas': parseInt(
-          JSON.parse(JSON.stringify(count))['Total de refeições registradas'],
-        ),
+          return count
+        },
+        {
+          total: 0,
+          sequence: 0,
+        },
+      )
 
-        'Total de refeições dentro da dieta': parseInt(
-          JSON.parse(JSON.stringify(totalMealsInsideDiet))[0][
-            'Total de refeições dentro da dieta'
-          ],
-        ),
+      //   const count = await knex('meals')
+      //     .count('meal_id', { as: 'Total de refeições registradas' })
+      //     .where('user_id', userId)
+      //     .first()
 
-        'Total de refeições fora da dieta': parseInt(
-          JSON.parse(JSON.stringify(totalMealsOutsideDiet))[0][
-            'Total de refeições fora da dieta'
-          ],
-        ),
+      //   const totalMealsInsideDiet = await knex('meals')
+      //     .count('meal_id', { as: 'Total de refeições dentro da dieta' })
+      //     .where('inside_diet', true)
+      //     .andWhere('user_id', userId)
+
+      //   const totalMealsOutsideDiet = await knex('meals')
+      //     .count('meal_id', { as: 'Total de refeições fora da dieta' })
+      //     .where('inside_diet', false)
+      //     .andWhere('user_id', userId)
+
+      //   const summary = {
+      //     'Total de refeições registradas': parseInt(
+      //       JSON.parse(JSON.stringify(count))['Total de refeições registradas'],
+      //     ),
+
+      //     'Total de refeições dentro da dieta': parseInt(
+      //       JSON.parse(JSON.stringify(totalMealsInsideDiet))[0][
+      //         'Total de refeições dentro da dieta'
+      //       ],
+      //     ),
+
+      //     'Total de refeições fora da dieta': parseInt(
+      //       JSON.parse(JSON.stringify(totalMealsOutsideDiet))[0][
+      //         'Total de refeições fora da dieta'
+      //       ],
+      //     ),
+
+      //     'Streak de refeições dentro da dieta': parseInt(
+      //       JSON.parse(JSON.stringify(mealsBestSequence.sequence))[0][
+      //         'Streak de refeições dentro da dieta'
+      //       ],
+      //     ),
+      //   }
+
+      //   return { summary }
+
+      return {
+        total: meals.length,
+        totalInsideInDiet: mealsInsideDiet.length,
+        totalOutsideDiet: mealsOutsideDiet.length,
+        bestInsideDietSequence:
+          mealsBestSequence.sequence > mealsBestSequence.total
+            ? mealsBestSequence.sequence
+            : mealsBestSequence.total,
       }
-
-      return { summary }
     },
   )
 
